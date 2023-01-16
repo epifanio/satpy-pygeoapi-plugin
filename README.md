@@ -1,0 +1,1 @@
+# satpy-pygeoapi-plugin
