@@ -1,0 +1,3 @@
+build/
+satpy_pygeoapi_plugin.egg-info/
+satpy_pygeoapi_plugin/__pycache__/
