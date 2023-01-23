@@ -46,7 +46,7 @@ status = {'SUCCESS': 'successful',
 LOGGER = logging.getLogger(__name__)
 
 
-class my_own_manager(BaseManager):
+class celery_redis_manager(BaseManager):
     """generic Manager ABC"""
 
     def __init__(self, manager_def: dict):
