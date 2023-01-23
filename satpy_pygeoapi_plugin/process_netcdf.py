@@ -1,40 +1,38 @@
-# =================================================================
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
-# Authors: Tom Kralidis <tomkralidis@gmail.com>
+# Copyright (c) 2023
 #
-# Copyright (c) 2022 Tom Kralidis
+# Author(s):
 #
-# Permission is hereby granted, free of charge, to any person
-# obtaining a copy of this software and associated documentation
-# files (the "Software"), to deal in the Software without
-# restriction, including without limitation the rights to use,
-# copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following
-# conditions:
+#   Trygve Aspenes <trygveas@met.no>
 #
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-# OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-# OTHER DEALINGS IN THE SOFTWARE.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-# =================================================================
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""Movers for the move_it scripts."""
 
 import re
 import os
+import base64
 import logging
 import rasterio
 import mapscript
 from glob import glob
 from satpy import Scene
 from datetime import datetime
+from proj.celery import app
+from celery import Task
 
 from pygeoapi.process.base import BaseProcessor, ProcessorExecuteError
 
@@ -110,94 +108,6 @@ PROCESS_METADATA = {
     }
 }
 
-
-class ProcessNetcdfProcessor(BaseProcessor):
-    """Process NetCDF Processor example"""
-
-    def __init__(self, processor_def):
-        """
-        Initialize object
-
-        :param processor_def: provider definition
-
-        :returns: pygeoapi.process.process_netcdf.ProcessNetcdfProcessor
-        """
-
-        super().__init__(processor_def, PROCESS_METADATA)
-
-    def execute(self, data):
-
-        mimetype = 'application/json'
-        name = data.get('name')
-
-        if name is None:
-            raise ProcessorExecuteError('Cannot process without a name')
-
-        message = data.get('message', '')
-        print("MESSAGE", message)
-        value = f'HelloXXXXXXXXXXXXXXXXXX {name}! {message}'.strip()
-
-        netcdf_path = data.get('netcdf_file')
-        value = f'{netcdf_path}'
-        satpy_products = []
-        full_request = None
-
-        (_path, _platform_name, _, _start_time, _end_time) = _parse_filename(netcdf_path)
-        start_time = datetime.strptime(_start_time, "%Y%m%d%H%M%S")
-        print("START TIME: ", start_time)
-        similar_netcdf_paths = _search_for_similar_netcdf_paths(_path, _platform_name, _start_time, _end_time)
-        print("Similar netcdf paths:", similar_netcdf_paths)
-        ms_satpy_products = _get_satpy_products(satpy_products, full_request)
-        print("satpy product/layer", ms_satpy_products)
-
-        satpy_products_to_generate = []
-        for satpy_product in ms_satpy_products:
-            satpy_product_filename = f'{satpy_product}-{start_time:%Y%m%d%H%M%S}.tif'
-            satpy_products_to_generate.append({'satpy_product': satpy_product, 'satpy_product_filename': satpy_product_filename} )
-        
-        
-        _generate_satpy_geotiff(similar_netcdf_paths, satpy_products_to_generate)
-
-        map_object = mapscript.mapObj()
-        _fill_metadata_to_mapfile(netcdf_path, map_object)
-
-        for satpy_product in satpy_products_to_generate:
-            layer = mapscript.layerObj()
-            _generate_layer(start_time, satpy_product['satpy_product'],
-                            satpy_product['satpy_product_filename'], layer)
-            layer_no = map_object.insertLayer(layer)
-        map_object.save(f'satpy-products-{start_time:%Y%m%d%H%M%S}.map')
-
-        ows_req = mapscript.OWSRequest()
-        ows_req.type = mapscript.MS_GET_REQUEST
-        query_params = ("SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX=50,-10,80,50"
-                        "&CRS=EPSG:4326&WIDTH=800&HEIGHT=1200&LAYERS=overview&"
-                        "STYLES=&TIME=2023-01-13T07:22:21Z&FORMAT=image/png"
-                        "&DPI=96&MAP_RESOLUTION=96&FORMAT_OPTIONS=dpi:96&"
-                        "TRANSPARENT=TRUE")
-        try:
-            ows_req.loadParamsFromURL(query_params)
-        except AttributeError:
-            pass
-        except mapscript.MapServerError:
-            ows_req = mapscript.OWSRequest()
-            ows_req.type = mapscript.MS_GET_REQUEST
-            pass
-        print("NumParams", ows_req.NumParams)
-        print("TYPE", ows_req.type)
-
-        mapscript.msIO_installStdoutToBuffer()
-        map_object.OWSDispatch( ows_req )
-        content_type = mapscript.msIO_stripStdoutBufferContentType()
-        result = mapscript.msIO_getStdoutBufferBytes()
-
-        # return mimetype, outputs
-        print("CONTENT_TYPR", content_type)
-        return content_type, result
-
-    def __repr__(self):
-        return f'<ProcessNetcdfProcessor> {self.name}'
-
 def _parse_filename(netcdf_path):
     """Parse the netcdf to return start_time."""
     pattern_match = '^(.*satellite-thredds/polar-swath/\d{4}/\d{2}/\d{2}/)(metopa|metopb|metopc|noaa18|noaa19|noaa20|npp|aqua|terra|fy3d)-(avhrr|viirs-mband|viirs-dnb|modis-1km|mersi2-1k)-(\d{14})-(\d{14})\.nc$'
@@ -219,8 +129,8 @@ def _get_satpy_products(satpy_products, full_request):
     # Default
     ms_satpy_products = ['overview']
     # ms_satpy_products = ['night_overview']
-    # if satpy_products:
-    #     ms_satpy_products = satpy_products
+    if satpy_products:
+        ms_satpy_products = satpy_products
     # else:
     #     try:
     #         ms_satpy_products = [full_request.query_params['layers']]
@@ -303,3 +213,96 @@ def _generate_layer(start_time, satpy_product, satpy_product_filename, layer):
     # layer.metadata.set("wms_srs", "EPSG:25833 EPSG:3978 EPSG:4326 EPSG:4269 EPSG:3857")
     # layer.units = mapscript.MS_DD
     dataset.close()
+
+class ProcessNetcdfProcessor(BaseProcessor, Task):
+    """Process NetCDF Processor example"""
+
+    def __init__(self, processor_def):
+        """
+        Initialize object
+
+        :param processor_def: provider definition
+
+        :returns: pygeoapi.process.process_netcdf.ProcessNetcdfProcessor
+        """
+        # print("processor def", processor_def)
+        super().__init__(processor_def, PROCESS_METADATA)
+
+    @app.task(track_started=True)
+    def execute(self, data):
+        mimetype = 'application/json'
+        name = data.get('name')
+        if name is None:
+            raise ProcessorExecuteError('Cannot process without a name')
+
+        message = data.get('message', '')
+        print("MESSAGE", message)
+        value = f'HelloXXXXXXXXXXXXXXXXXX {name}! {message}'.strip()
+
+        netcdf_path = data.get('netcdf_file')
+        value = f'{netcdf_path}'
+        satpy_products = [data.get('layer', 'overview')]
+        full_request = None
+
+        (_path, _platform_name, _, _start_time, _end_time) = _parse_filename(netcdf_path)
+        start_time = datetime.strptime(_start_time, "%Y%m%d%H%M%S")
+        print("START TIME: ", start_time)
+        similar_netcdf_paths = _search_for_similar_netcdf_paths(_path, _platform_name, _start_time, _end_time)
+        print("Similar netcdf paths:", similar_netcdf_paths)
+        ms_satpy_products = _get_satpy_products(satpy_products, full_request)
+        print("satpy product/layer", ms_satpy_products)
+
+        satpy_products_to_generate = []
+        for satpy_product in ms_satpy_products:
+            satpy_product_filename = f'{satpy_product}-{start_time:%Y%m%d%H%M%S}.tif'
+            satpy_products_to_generate.append({'satpy_product': satpy_product, 'satpy_product_filename': satpy_product_filename} )
+
+
+        _generate_satpy_geotiff(similar_netcdf_paths, satpy_products_to_generate)
+
+        map_object = mapscript.mapObj()
+        _fill_metadata_to_mapfile(netcdf_path, map_object)
+
+        for satpy_product in satpy_products_to_generate:
+            layer = mapscript.layerObj()
+            _generate_layer(start_time, satpy_product['satpy_product'],
+                            satpy_product['satpy_product_filename'], layer)
+            layer_no = map_object.insertLayer(layer)
+        map_object.save(f'satpy-products-{start_time:%Y%m%d%H%M%S}.map')
+
+        bbox = '50,-10,80,50'
+        bbox = '-1200000,6000000,3200000,9000000'
+        epsg='EPSG:4326'
+        epsg='EPSG:3857'
+        time_stamp='2023-01-13T07:22:21Z'
+        ows_req = mapscript.OWSRequest()
+        ows_req.type = mapscript.MS_GET_REQUEST
+        query_params = (f"SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={bbox}"
+                        f"&CRS={epsg}&WIDTH=1200&HEIGHT=800&LAYERS={data.get('layer', 'overview')}&"
+                        f"STYLES=&TIME={time_stamp}&FORMAT=image/png"
+                        "&DPI=96&MAP_RESOLUTION=96&FORMAT_OPTIONS=dpi:96&"
+                        "TRANSPARENT=TRUE")
+        try:
+            ows_req.loadParamsFromURL(query_params)
+        except AttributeError:
+            pass
+        except mapscript.MapServerError:
+            ows_req = mapscript.OWSRequest()
+            ows_req.type = mapscript.MS_GET_REQUEST
+            pass
+        print("NumParams", ows_req.NumParams)
+        print("TYPE", ows_req.type)
+
+        mapscript.msIO_installStdoutToBuffer()
+        map_object.OWSDispatch( ows_req )
+        content_type = mapscript.msIO_stripStdoutBufferContentType()
+        result = mapscript.msIO_getStdoutBufferBytes()
+        encoded_result = base64.b64encode(result)
+        # return mimetype, outputs
+        print("CONTENT_TYPR", content_type)
+        return content_type, encoded_result.decode('ascii')
+
+    def __repr__(self):
+        return f'<ProcessNetcdfProcessor> {self.name}'
+
+app.register_task(ProcessNetcdfProcessor({'name': 'satpy_pygeoapi_plugin.process_netcdf.ProcessNetcdfProcessor'}))
