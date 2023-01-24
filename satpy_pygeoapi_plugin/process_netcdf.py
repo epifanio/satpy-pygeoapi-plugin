@@ -31,7 +31,7 @@ import mapscript
 from glob import glob
 from satpy import Scene
 from datetime import datetime
-from proj.celery import app
+from satpy_pygeoapi_plugin.celery import app
 from celery import Task
 
 from pygeoapi.process.base import BaseProcessor, ProcessorExecuteError
