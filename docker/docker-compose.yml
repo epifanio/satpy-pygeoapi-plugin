@@ -1,0 +1,52 @@
+version: "3"
+services:
+  pygeoapi:
+    image: epinux/sat_pygeoapi
+    build: .
+    environment:
+      DEBUG: 1
+      PYTHONUNBUFFERED: 1
+      LOGLEVEL: DEBUG
+      REDIS_HOST: "redis"
+      FORWARDED_ALLOW_IPS: "*"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    ports:
+      - 80:80
+      - 5000:5000
+    hostname: pygeoapi
+    depends_on:
+      - celery
+      - redis
+    networks:
+      - net
+
+  celery:
+    image: epinux/sat_pygeoapi
+    environment:
+      REDIS_HOST: "redis"
+      REDIS_PASSWORD: 'FGX0Im8cROKpFpHPOP8FETmOpLPsiLwEnHHXprOgn2AR7r7cGp'
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ./start_celery.sh:/start_celery.sh
+    entrypoint: /start_celery.sh
+    depends_on:
+      - redis
+    hostname: celery
+    networks:
+      - net
+
+  redis:
+    image: redis:6-alpine
+    ports:
+      - 6379:6379
+    networks:
+      - net
+
+networks:
+  net:
+    attachable: true
+  vpn-friendly:
+    external: true
