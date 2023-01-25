@@ -17,7 +17,7 @@ RUN pip install -e /satpy/
 
 ENV PYGEOAPI_OPENAPI=example-openapi.yml 
 
-ENV PYGEOAPI_CONFIG=/satpy/etc/example-config.yml  
+ENV PYGEOAPI_CONFIG=/satpy/docker/example-config.yml  
 
 # COPY docker/pygeoapi-config.yml /pygeoapi/example-config.yml
 
