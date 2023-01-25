@@ -38,12 +38,14 @@ from celery import Celery
 from celery.result import AsyncResult
 
 import redis
+import os
 
 null = None
-status = {'SUCCESS': 'successful',
-          'STARTED': 'running'}
+status = {"SUCCESS": "successful", "STARTED": "running"}
 
 LOGGER = logging.getLogger(__name__)
+
+redis_host = os.environ.get("REDIS_HOST", "localhost")
 
 
 class celery_redis_manager(BaseManager):
@@ -62,13 +64,16 @@ class celery_redis_manager(BaseManager):
         self.is_async = True
         self.results = {}
 
-        self.broker = manager_def.get('broker', 'redis://')
-        self.backend = manager_def.get('backend', 'redis://')
-        self.result_backend = manager_def.get('result_backend', 'redis://')
-        self.app = Celery('proj',
-                          broker=self.broker,
-                          backend=self.backend,
-                          result_backend=self.result_backend)
+        self.broker = manager_def.get("broker", "redis://redis:6379")
+        self.backend = manager_def.get("backend", "redis://redis:6379")
+        self.result_backend = manager_def.get("result_backend", "redis://redis:6379")
+
+        self.app = Celery(
+            "proj",
+            broker=self.broker,
+            backend=self.backend,
+            result_backend=self.result_backend,
+        )
 
     def delete_job(self, job_id: str) -> bool:
         """
@@ -79,7 +84,7 @@ class celery_redis_manager(BaseManager):
         :return `bool` of status result
         """
 
-        res = AsyncResult(job_id,app=self.app).revoke(terminate=True)
+        res = AsyncResult(job_id, app=self.app).revoke(terminate=True)
         return True
 
     def get_jobs(self, status: JobStatus = None) -> list:
@@ -98,18 +103,28 @@ class celery_redis_manager(BaseManager):
         print("JOBS", i.scheduled())
         print("JOBS", i.registered())
         print("JOBS", i.reserved())
-        print("QUEUES", i.query_task('*'))
-        redis_cache = redis.Redis()
-        redis_job_ids = redis_cache.keys('celery-task-meta-*')
+        print("QUEUES", i.query_task("*"))
+        redis_cache = redis.Redis(host=redis_host)
+        redis_job_ids = redis_cache.keys("celery-task-meta-*")
         for redis_job_id in redis_job_ids:
-            print(redis_job_id.decode('utf-8'))
-            z = re.match('celery-task-meta-(.*)', redis_job_id.decode('utf-8'))
+            print(redis_job_id.decode("utf-8"))
+            z = re.match("celery-task-meta-(.*)", redis_job_id.decode("utf-8"))
             if z:
                 print("GROUPS", z.groups(1)[0])
-                _jobs.append({"identifier": z.groups(1)[0], 'process_id': '', 'job_start_datetime':'',
-                              'job_end_datetime':'', 'status': 'successful', 'location': None, 'mimetype': None,
-                              'message': 'ANy message', 'progress': 0})
-        #{'identifier': '0d0f7d8e-9b1b-11ed-80c4-e884a5ddae7d', 'process_id': 'process-netcdf',
+                _jobs.append(
+                    {
+                        "identifier": z.groups(1)[0],
+                        "process_id": "",
+                        "job_start_datetime": "",
+                        "job_end_datetime": "",
+                        "status": "successful",
+                        "location": None,
+                        "mimetype": None,
+                        "message": "ANy message",
+                        "progress": 0,
+                    }
+                )
+        # {'identifier': '0d0f7d8e-9b1b-11ed-80c4-e884a5ddae7d', 'process_id': 'process-netcdf',
         # 'job_start_datetime': '2023-01-23T12:40:00.389709Z', 'job_end_datetime': '2023-01-23T12:40:00.392050Z',
         # 'status': 'failed', 'location': None, 'mimetype': None, 'message': 'InvalidParameterValue: Error updating job', 'progress': 5}
         return _jobs
@@ -122,22 +137,26 @@ class celery_redis_manager(BaseManager):
 
         :returns: `dict`  # `pygeoapi.process.manager.Job`
         """
-        res = AsyncResult(job_id,app=self.app)
-
+        res = AsyncResult(job_id, app=self.app)
 
         print("QUERY_TASL", self.app.control.inspect().query_task(job_id))
-        #print(res.query_task(job_id))
+        # print(res.query_task(job_id))
         print(dir(res))
         print("RESULTS state", res.state)
-        print("RESULTS status",  res.status)
-        result = {'task_id': job_id,
-                  'name': res.name,
-                  'status': res.status}
+        print("RESULTS status", res.status)
+        result = {"task_id": job_id, "name": res.name, "status": res.status}
 
-        return {'identifier': result.get('task_id', job_id), 'process_id': result.get('name', 'Unknown'), 'job_start_datetime': '',
-                'job_end_datetime': result.get('date_done',''), 'status': status.get(result.get('status','running')),
-                'location': 'Dummy', 'mimetype': None, 'message': '', 'progress': 'Not Set'}
-
+        return {
+            "identifier": result.get("task_id", job_id),
+            "process_id": result.get("name", "Unknown"),
+            "job_start_datetime": "",
+            "job_end_datetime": result.get("date_done", ""),
+            "status": status.get(result.get("status", "running")),
+            "location": "Dummy",
+            "mimetype": None,
+            "message": "",
+            "progress": "Not Set",
+        }
 
     def get_job_result(self, job_id: str) -> Tuple[str, Any]:
         """
@@ -148,11 +167,11 @@ class celery_redis_manager(BaseManager):
         :returns: `tuple` of mimetype and raw output
         """
 
-        redis_cache = redis.Redis()
-        redis_job_id = redis_cache.keys('*' + job_id)[0].decode('utf-8')
-        job_result = eval(redis_cache.get(redis_job_id).decode('utf-8'))
+        redis_cache = redis.Redis(host=redis_host)
+        redis_job_id = redis_cache.keys("*" + job_id)[0].decode("utf-8")
+        job_result = eval(redis_cache.get(redis_job_id).decode("utf-8"))
 
-        res = AsyncResult(job_id,app=self.app)
+        res = AsyncResult(job_id, app=self.app)
         print("RESULTS", res)
         if res.ready():
             print("Results are ready")
@@ -167,11 +186,12 @@ class celery_redis_manager(BaseManager):
         else:
             print("Results are NOT ready")
             return (None,)
-            
+
         return mimetype, encoded_result
 
-    def execute_process(self, p: BaseProcessor, job_id: str, data_dict: dict,
-                        is_async: bool = False) -> Tuple[str, Any, int]:
+    def execute_process(
+        self, p: BaseProcessor, job_id: str, data_dict: dict, is_async: bool = False
+    ) -> Tuple[str, Any, int]:
         """
         Default process execution handler
 
@@ -183,13 +203,13 @@ class celery_redis_manager(BaseManager):
         :returns: tuple of MIME type, response payload and status
         """
 
-        jfmt = 'application/json'
+        jfmt = "application/json"
 
         print("PPPPPP", p, is_async, job_id)
         print(datetime.datetime.now())
         result = p.execute.apply_async((data_dict, data_dict), task_id=job_id)
-        #result = p.execute(data_dict, job_id)
-        #p.state(data_dict)
+        # result = p.execute(data_dict, job_id)
+        # p.state(data_dict)
         self.results[result.id] = result
         print(datetime.datetime.now())
         print("After delay", result)
@@ -206,19 +226,19 @@ class celery_redis_manager(BaseManager):
         outputs = "nhe"
         try:
             print("DATA DICTS", data_dict)
-            #jfmt, outputs = p.execute(data_dict)
+            # jfmt, outputs = p.execute(data_dict)
             current_status = JobStatus.successful
         except Exception as err:
             outputs = {
-                'code': 'InvalidParameterValue',
-                'description': 'Error updating job'
+                "code": "InvalidParameterValue",
+                "description": "Error updating job",
             }
             current_status = JobStatus.failed
             LOGGER.exception(err)
             LOGGER.error(err)
 
-        #return jfmt, outputs, current_status
-        return 'application/json', None, JobStatus.accepted
+        # return jfmt, outputs, current_status
+        return "application/json", None, JobStatus.accepted
 
     def __repr__(self):
-        return f'<my_own_manager> {self.name}'
+        return f"<my_own_manager> {self.name}"
