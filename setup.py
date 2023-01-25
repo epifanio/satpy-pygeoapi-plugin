@@ -26,26 +26,34 @@ from setuptools import setup
 import imp
 
 version = imp.load_source(
-    'satpy_pygeoapi_plugin.version', 'satpy_pygeoapi_plugin/version.py')
+    "satpy_pygeoapi_plugin.version", "satpy_pygeoapi_plugin/version.py"
+)
 
-setup(name="satpy_pygeoapi_plugin",
-      version=version.__version__,
-      description='SATPY pygeoapi plugin reading netcdf and mapscript',
-      author='Trygve Aspenes',
-      author_email='trygveas@met.no',
-      classifiers=["Development Status :: 3 - Alpha",
-                   "Intended Audience :: Science/Research",
-                   "License :: OSI Approved :: GNU General Public License v3 " +
-                   "or later (GPLv3+)",
-                   "Operating System :: OS Independent",
-                   "Programming Language :: Python",
-                   "Topic :: Scientific/Engineering"],
-      url="",
-      packages=['satpy_pygeoapi_plugin',],
-      scripts=[],
-      data_files=[],
-      zip_safe=False,
-      install_requires=['satpy',],
-      tests_require=[],
-      test_suite='',
-      )
+setup(
+    name="satpy_pygeoapi_plugin",
+    version=version.__version__,
+    description="SATPY pygeoapi plugin reading netcdf and mapscript",
+    author="Trygve Aspenes",
+    author_email="trygveas@met.no",
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: GNU General Public License v3 "
+        + "or later (GPLv3+)",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python",
+        "Topic :: Scientific/Engineering",
+    ],
+    url="",
+    packages=[
+        "satpy_pygeoapi_plugin",
+    ],
+    scripts=[],
+    data_files=[],
+    zip_safe=False,
+    install_requires=[
+        "satpy",
+    ],
+    tests_require=[],
+    test_suite="",
+)
