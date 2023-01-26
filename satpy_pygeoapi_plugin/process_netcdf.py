@@ -96,7 +96,7 @@ PROCESS_METADATA = {
         "inputs": {
             "name": "netcdf",
             "message": "An optional message.",
-            "netcdf_file": "/home/epinux/Downloads/noaa19-avhrr-20230124115334-20230124120327.nc",
+            "netcdf_file": "/data/noaa19-avhrr-20230124115334-20230124120327.nc",
         },
     },
 }
