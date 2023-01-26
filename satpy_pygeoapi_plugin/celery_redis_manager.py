@@ -45,7 +45,8 @@ status = {"SUCCESS": "successful", "STARTED": "running"}
 
 LOGGER = logging.getLogger(__name__)
 
-redis_host = os.environ.get("REDIS_HOST", "localhost")
+redis_host = os.environ.get("REDIS_HOST", "redis")
+redis_port = os.environ.get("REDIS_PORT", 6379)
 
 
 class celery_redis_manager(BaseManager):
@@ -64,9 +65,11 @@ class celery_redis_manager(BaseManager):
         self.is_async = True
         self.results = {}
 
-        self.broker = manager_def.get("broker", "redis://redis:6379")
-        self.backend = manager_def.get("backend", "redis://redis:6379")
-        self.result_backend = manager_def.get("result_backend", "redis://redis:6379")
+        self.broker = manager_def.get("broker", f"redis://{redis_host}:{redis_port}")
+        self.backend = manager_def.get("backend", f"redis://{redis_host}:{redis_port}")
+        self.result_backend = manager_def.get(
+            "result_backend", f"redis://{redis_host}:{redis_port}"
+        )
 
         self.app = Celery(
             "proj",
@@ -104,7 +107,7 @@ class celery_redis_manager(BaseManager):
         print("JOBS", i.registered())
         print("JOBS", i.reserved())
         print("QUEUES", i.query_task("*"))
-        redis_cache = redis.Redis(host=redis_host)
+        redis_cache = redis.Redis(host="redis")
         redis_job_ids = redis_cache.keys("celery-task-meta-*")
         for redis_job_id in redis_job_ids:
             print(redis_job_id.decode("utf-8"))
@@ -205,7 +208,7 @@ class celery_redis_manager(BaseManager):
 
         jfmt = "application/json"
 
-        print("PPPPPP", p, is_async, job_id)
+        print("From execute_process: ", p, is_async, job_id)
         print(datetime.datetime.now())
         result = p.execute.apply_async((data_dict, data_dict), task_id=job_id)
         # result = p.execute(data_dict, job_id)
