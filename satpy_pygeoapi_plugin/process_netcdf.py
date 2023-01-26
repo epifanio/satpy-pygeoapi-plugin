@@ -36,6 +36,9 @@ from celery import Task
 
 from pygeoapi.process.base import BaseProcessor, ProcessorExecuteError
 
+from satpy.utils import debug_on
+
+debug_on()
 
 LOGGER = logging.getLogger(__name__)
 
@@ -96,7 +99,7 @@ PROCESS_METADATA = {
         "inputs": {
             "name": "netcdf",
             "message": "An optional message.",
-            "netcdf_file": "/data/noaa19-avhrr-20230124115334-20230124120327.nc",
+            "netcdf_file": "/pygeoapi/noaa19-avhrr-20230124115334-20230124120327.nc",
         },
     },
 }
@@ -160,6 +163,9 @@ def _generate_satpy_geotiff(netcdf_paths, satpy_products_to_generate):
     print(os.environ)
     print("Need to generate: ", satpy_products)
     print(datetime.now(), "Before Scene")
+    print("####################### netcdf_paths ##########################")
+    print(netcdf_paths)
+    print("###############################################################")
     swath_scene = Scene(filenames=netcdf_paths, reader="satpy_cf_nc")
     print(datetime.now(), "Before load")
     swath_scene.load(satpy_products)
