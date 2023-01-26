@@ -16,6 +16,8 @@ services:
       - 80:80
       - 5000:5000
     hostname: pygeoapi
+    volumes:
+      - ./noaa19-avhrr-20230124115334-20230124120327.nc /pygeoapi/noaa19-avhrr-20230124115334-20230124120327.nc
     depends_on:
       - celery
       - redis
@@ -33,6 +35,7 @@ services:
       PYTHONUNBUFFERED: 1
     volumes:
       - ./start_celery.sh:/start_celery.sh
+      - ./noaa19-avhrr-20230124115334-20230124120327.nc:/data/noaa19-avhrr-20230124115334-20230124120327.nc
     entrypoint: /start_celery.sh
     depends_on:
       - redis
