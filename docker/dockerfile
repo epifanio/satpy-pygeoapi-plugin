@@ -8,6 +8,8 @@ RUN apt-get install -y celery python3-mapscript python3-satpy python3-celery pyt
 
 RUN apt-get install -y python3-redis python3-rediscluster python3-redisearch-py python3-rq
 
+RUN pip install -U satpy
+
 # RUN apt-get install -y git
 # RUN pip install git+https://github.com/epifanio/satpy-pygeoapi-plugin
 
