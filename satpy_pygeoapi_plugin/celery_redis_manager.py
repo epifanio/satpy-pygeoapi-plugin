@@ -152,11 +152,14 @@ class celery_redis_manager(BaseManager):
         """
 
         redis_cache = redis.Redis()
-        redis_job_id = redis_cache.keys('*' + job_id)[0].decode('utf-8')
-        job_result = eval(redis_cache.get(redis_job_id).decode('utf-8'))
+        try:
+            redis_job_id = redis_cache.keys('*' + job_id)[0].decode('utf-8')
+            job_result = eval(redis_cache.get(redis_job_id).decode('utf-8'))
+        except IndexError:
+            pass
 
         res = AsyncResult(job_id,app=self.app)
-        print("RESULTS", res)
+        print("RESULTS", res, res.ready())
         if res.ready():
             print("Results are ready")
             _result = res.result
@@ -169,7 +172,7 @@ class celery_redis_manager(BaseManager):
                     return (None,)
         else:
             print("Results are NOT ready")
-            return (None,)
+            return (None, None)
             
         return mimetype, encoded_result
 
