@@ -41,7 +41,8 @@ import redis
 
 null = None
 status = {'SUCCESS': 'successful',
-          'STARTED': 'running'}
+          'STARTED': 'running',
+          'PENDING': 'dismissed'}
 
 LOGGER = logging.getLogger(__name__)
 
@@ -69,6 +70,8 @@ class celery_redis_manager(BaseManager):
                           broker=self.broker,
                           backend=self.backend,
                           result_backend=self.result_backend)
+        # self.app.conf.update(results_expires=30,)
+        # print("CELRY CONFIG", self.app.conf)
 
     def delete_job(self, job_id: str) -> bool:
         """
