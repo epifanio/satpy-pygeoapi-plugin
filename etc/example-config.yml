@@ -30,8 +30,8 @@
 server:
     bind:
         host: 0.0.0.0
-        port: 5000
-    url: http://localhost:5000
+        port: 80
+    url: http://0.0.0.0
     mimetype: application/json; charset=UTF-8
     encoding: utf-8
     gzip: false
@@ -43,16 +43,16 @@ server:
     pretty_print: true
     limit: 10
     # templates:
-      # path: /path/to/Jinja2/templates
-      # static: /path/to/static/folder # css/js/img
+    # path: /path/to/Jinja2/templates
+    # static: /path/to/static/folder # css/js/img
     map:
         url: https://tile.openstreetmap.org/{z}/{x}/{y}.png
         attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
     manager:
         name: satpy_pygeoapi_plugin.celery_redis_manager.celery_redis_manager
-        broker: redis://
-        backend: redis://
-        result_backend: redis://
+        broker: redis://redis:6379
+        backend: redis://redis:6379
+        result_backend: redis://redis:6379
     # manager:
     #     name: TinyDB
     #     connection: /tmp/pygeoapi-process-manager.db
@@ -126,7 +126,7 @@ resources:
               hreflang: en-US
         extents:
             spatial:
-                bbox: [-30,40,30,70]
+                bbox: [-30, 40, 30, 70]
                 crs: http://www.opengis.net/def/crs/OGC/1.3/CRS84
             temporal:
                 #datetime: 2023-01-11T06:34:20Z
@@ -141,8 +141,8 @@ resources:
                   layer: overview_with_night_ir_polar
                   style: default
               format:
-                    name: png
-                    mimetype: image/png
+                  name: png
+                  mimetype: image/png
 
     process-netcdf:
         type: process
