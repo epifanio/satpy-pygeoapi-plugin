@@ -169,7 +169,7 @@ class celery_redis_manager(BaseManager):
         :returns: `tuple` of mimetype and raw output
         """
 
-        redis_cache = redis.Redis()
+        redis_cache = redis.Redis(host="redis")
         try:
             redis_job_id = redis_cache.keys('*' + job_id)[0].decode('utf-8')
             job_result = eval(redis_cache.get(redis_job_id).decode('utf-8'))
