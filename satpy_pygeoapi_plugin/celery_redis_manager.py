@@ -41,7 +41,9 @@ import redis
 import os
 
 null = None
-status = {"SUCCESS": "successful", "STARTED": "running"}
+status = {'SUCCESS': 'successful',
+          'STARTED': 'running',
+          'PENDING': 'dismissed'}
 
 LOGGER = logging.getLogger(__name__)
 
@@ -65,18 +67,15 @@ class celery_redis_manager(BaseManager):
         self.is_async = True
         self.results = {}
 
-        self.broker = manager_def.get("broker", f"redis://{redis_host}:{redis_port}")
-        self.backend = manager_def.get("backend", f"redis://{redis_host}:{redis_port}")
-        self.result_backend = manager_def.get(
-            "result_backend", f"redis://{redis_host}:{redis_port}"
-        )
-
-        self.app = Celery(
-            "proj",
-            broker=self.broker,
-            backend=self.backend,
-            result_backend=self.result_backend,
-        )
+        self.broker = manager_def.get('broker', 'redis://')
+        self.backend = manager_def.get('backend', 'redis://')
+        self.result_backend = manager_def.get('result_backend', 'redis://')
+        self.app = Celery('proj',
+                          broker=self.broker,
+                          backend=self.backend,
+                          result_backend=self.result_backend)
+        # self.app.conf.update(results_expires=30,)
+        # print("CELRY CONFIG", self.app.conf)
 
     def delete_job(self, job_id: str) -> bool:
         """
@@ -170,12 +169,15 @@ class celery_redis_manager(BaseManager):
         :returns: `tuple` of mimetype and raw output
         """
 
-        redis_cache = redis.Redis(host=redis_host)
-        redis_job_id = redis_cache.keys("*" + job_id)[0].decode("utf-8")
-        job_result = eval(redis_cache.get(redis_job_id).decode("utf-8"))
+        redis_cache = redis.Redis()
+        try:
+            redis_job_id = redis_cache.keys('*' + job_id)[0].decode('utf-8')
+            job_result = eval(redis_cache.get(redis_job_id).decode('utf-8'))
+        except IndexError:
+            pass
 
         res = AsyncResult(job_id, app=self.app)
-        print("RESULTS", res)
+        print("RESULTS", res, res.ready())
         if res.ready():
             print("Results are ready")
             _result = res.result
@@ -188,7 +190,7 @@ class celery_redis_manager(BaseManager):
                     return (None,)
         else:
             print("Results are NOT ready")
-            return (None,)
+            return (None, None)
 
         return mimetype, encoded_result
 
